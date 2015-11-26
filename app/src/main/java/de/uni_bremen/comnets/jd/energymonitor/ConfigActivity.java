@@ -121,8 +121,7 @@ public class ConfigActivity extends AppCompatActivity {
      * @param view
      */
     public void flushDb(View view) {
-        EnergyMonitorDbHelper db = new EnergyMonitorDbHelper(getApplicationContext());
-        db.flushDb();
+        myEnergyDb.flushDb();
         setTextView("DB flushed");
     }
 
@@ -231,9 +230,9 @@ public class ConfigActivity extends AppCompatActivity {
 
                     FileOutputStream fos = new FileOutputStream(output);
                     OutputStreamWriter fosw = new OutputStreamWriter(fos);
-                    EnergyMonitorDbHelper myEnergyDb = new EnergyMonitorDbHelper(getApplicationContext());
 
                     SQLiteDatabase db = myEnergyDb.getReadableDatabase();
+
                     Cursor res = db.rawQuery("select * from " + tables[0], null);
                     String row = "";
                     for (int j = 0; j < res.getColumnCount(); j++) {
@@ -290,7 +289,6 @@ public class ConfigActivity extends AppCompatActivity {
      */
     private class InsertIntoDb extends AsyncTask<ContentValues, Integer, Long> {
         protected Long doInBackground(ContentValues... values) {
-            EnergyMonitorDbHelper myEnergyDb = new EnergyMonitorDbHelper(getApplicationContext());
             SQLiteDatabase db = myEnergyDb.getWritableDatabase();
 
             Long lastRowId = (long) -1;
@@ -313,7 +311,6 @@ public class ConfigActivity extends AppCompatActivity {
 
         protected void onPostExecute(Long rowId) {
             //Toast.makeText(getApplicationContext(), "Insert done. Last ID: " + rowId, Toast.LENGTH_SHORT).show();
-            EnergyMonitorDbHelper myEnergyDb = new EnergyMonitorDbHelper(getApplicationContext());
             SQLiteDatabase db = myEnergyDb.getReadableDatabase();
             Cursor res = db.rawQuery("select * from " + EnergyMonitorDbHelper.TABLE_NAME, null);
 
