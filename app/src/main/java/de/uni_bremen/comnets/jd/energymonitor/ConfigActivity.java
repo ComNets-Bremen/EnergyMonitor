@@ -1,13 +1,14 @@
 package de.uni_bremen.comnets.jd.energymonitor;
 
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.BatteryManager;
@@ -17,20 +18,20 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.CheckBox;
-import android.widget.RelativeLayout;
-import android.widget.TableLayout;
-import android.widget.TableRow;
-import android.widget.TextView;
+import android.widget.ExpandableListView;
 import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 
 public class ConfigActivity extends AppCompatActivity {
     BroadcastReceiver batteryReceiver = null;
@@ -42,10 +43,35 @@ public class ConfigActivity extends AppCompatActivity {
     public static final String LOG_TAG = "ConfigActivity";
     public static final int SHOW_N_LAST_ROWS = 5;
 
+    ExpandableListAdapter listAdapter;
+    ExpandableListView expListView;
+    List<String> listDataHeader;
+    HashMap<String, List<String>> listDataChild;
+    /**
+     * ATTENTION: This was auto-generated to implement the App Indexing API.
+     * See https://g.co/AppIndexing/AndroidStudio for more information.
+     */
+    private GoogleApiClient client;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_config);
+
+        // List View start
+
+        listDataHeader = new ArrayList<String>();
+        listDataChild = new HashMap<String, List<String>>();
+
+        // get the listview
+        expListView = (ExpandableListView) findViewById(R.id.expandableListView);
+
+        listAdapter = new ExpandableListAdapter(this, listDataHeader, listDataChild);
+
+        // setting list adapter
+        expListView.setAdapter(listAdapter);
+
+        // List View end
 
         if (myEnergyDb == null) {
             myEnergyDb = new EnergyMonitorDbHelper(getApplicationContext());
@@ -56,7 +82,7 @@ public class ConfigActivity extends AppCompatActivity {
                 @Override
                 public void onReceive(Context context, Intent intent) {
 
-                    long currentTime = System.currentTimeMillis() / 1000;
+                    long currentTime = System.currentTimeMillis();
 
                     int currentLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
                     int scaling = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
@@ -83,9 +109,6 @@ public class ConfigActivity extends AppCompatActivity {
                     // Toast.makeText(getApplicationContext(), "Values to be inserted into table: " + values.toString(), Toast.LENGTH_SHORT).show();
 
                     new InsertIntoDb().execute(values);
-
-                    //setTextView("Insert in progress");
-                    //setTextView(currentTime + ": Level:" + level + " charging:" + isCharging + " usb:" + usbCharge + " ac:" + acCharge);
 
                 }
             };
@@ -121,8 +144,24 @@ public class ConfigActivity extends AppCompatActivity {
      * @param view
      */
     public void flushDb(View view) {
-        myEnergyDb.flushDb();
-        setTextView("DB flushed");
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage(R.string.flush_db_message)
+                .setTitle(R.string.flush_db_title);
+        builder.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                myEnergyDb.flushDb();
+                notifyUser(R.string.db_flushed);
+            }
+        });
+        builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                notifyUser(R.string.aborted);
+            }
+        });
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
 
     public void toggleCheckBox(View view) {
@@ -140,26 +179,26 @@ public class ConfigActivity extends AppCompatActivity {
             if (batteryReceiverRegistered) {
                 unregisterReceiver(batteryReceiver);
                 batteryReceiverRegistered = false;
-                Toast.makeText(getApplicationContext(), getResources().getString(R.string.measurements_stopped), Toast.LENGTH_SHORT).show();
+                notifyUser(R.string.measurements_stopped);
             } else {
-                Toast.makeText(getApplicationContext(), getResources().getString(R.string.measurements_already_stopped), Toast.LENGTH_SHORT).show();
+                notifyUser(R.string.measurements_already_stopped);
             }
         } else {
             if (!batteryReceiverRegistered) {
                 registerReceiver(batteryReceiver, batteryReceiverFilter);
                 batteryReceiverRegistered = true;
-                Toast.makeText(getApplicationContext(), getResources().getString(R.string.measurements_started), Toast.LENGTH_SHORT).show();
+                notifyUser(R.string.measurements_started);
             } else {
-                Toast.makeText(getApplicationContext(), getResources().getString(R.string.measurements_already_running), Toast.LENGTH_SHORT).show();
+                notifyUser(R.string.measurements_already_running);
             }
         }
 
         CheckBox checkBox = (CheckBox) findViewById(R.id.measurementStatusCheckBox);
         if (batteryReceiverRegistered) {
-            checkBox.setText(getResources().getString(R.string.measurement_status_running));
+            checkBox.setText(R.string.measurement_status_running);
             checkBox.setChecked(true);
         } else {
-            checkBox.setText(getResources().getString(R.string.measurement_status_stopped));
+            checkBox.setText(R.string.measurement_status_stopped);
             checkBox.setChecked(false);
         }
     }
@@ -168,21 +207,20 @@ public class ConfigActivity extends AppCompatActivity {
     /**
      * Debug output: Output given text in text view and as a toast
      *
-     * @param text
+     * @param text  The Text itself
      */
-    public void setTextView(String text) {
-        TextView textView = (TextView) findViewById(R.id.dataOutput);
-        textView.setText(text);
-/*
+    public void notifyUser(String text) {
         Context context = getApplicationContext();
         Toast toast = Toast.makeText(context, text, Toast.LENGTH_SHORT);
         toast.show();
-*/
     }
 
-
-    public void mainThreadToast(String text){
-
+    /**
+     * Wrapper for notifyUser: Accepts id from string resources
+     * @param id    The string id
+     */
+    public void notifyUser(int id){
+        notifyUser(getResources().getString(id));
     }
 
 
@@ -208,7 +246,7 @@ public class ConfigActivity extends AppCompatActivity {
                     dir.mkdirs();
                 }
 
-                File output = new File(dir, Build.PRODUCT + "_" +  tables[i] + "_" + sdf.format(new Date())+".csv");
+                File output = new File(dir, Build.PRODUCT + "_" + tables[i] + "_" + sdf.format(new Date()) + ".csv");
 
                 if (output == null) {
                     Log.e(LOG_TAG, "Cannot create output file.");
@@ -217,7 +255,7 @@ public class ConfigActivity extends AppCompatActivity {
 
                 try {
 
-                    if (!output.exists()){
+                    if (!output.exists()) {
                         Log.e(LOG_TAG, "File does not exists: " + output.toString());
                         try {
                             output.createNewFile();
@@ -312,43 +350,24 @@ public class ConfigActivity extends AppCompatActivity {
         protected void onPostExecute(Long rowId) {
             //Toast.makeText(getApplicationContext(), "Insert done. Last ID: " + rowId, Toast.LENGTH_SHORT).show();
             SQLiteDatabase db = myEnergyDb.getReadableDatabase();
-            Cursor res = db.rawQuery("select * from " + EnergyMonitorDbHelper.TABLE_NAME, null);
-
-            TableLayout tableLayout = (TableLayout)findViewById(R.id.table_layout);
-            tableLayout.removeAllViews();
-
-
-            TableRow tableRow = new TableRow(getApplicationContext());
-            for (int j = 0; j < res.getColumnCount(); j++) {
-                TextView columnsView = new TextView(getApplicationContext());
-                columnsView.setText(res.getColumnName(j));
-                columnsView.setTextColor(Color.BLUE);
-                columnsView.setRotation(70);
-                tableRow.addView(columnsView);
-
-            }
-            tableLayout.addView(tableRow);
-
-            int max = res.getCount();
-
-            res = db.rawQuery("select * from " + EnergyMonitorDbHelper.TABLE_NAME + " order by " + EnergyMonitorDbHelper.COLUMN_NAME_ID + " desc limit " + SHOW_N_LAST_ROWS,null);
+            Cursor res = db.rawQuery("select * from " + EnergyMonitorDbHelper.TABLE_NAME + " where " + EnergyMonitorDbHelper.COLUMN_NAME_ID + "=" + rowId, null);
             res.moveToFirst();
-            Log.e(LOG_TAG, "Len: " + res.getCount());
 
+            String title = "";
+            List<String> items = new ArrayList<String>();
 
-            while (res.isAfterLast() == false) {
-                TableRow row = new TableRow(getApplicationContext());
-                for (int j = 0; j < res.getColumnCount(); j++){
-                    TextView column = new TextView(getApplicationContext());
-                    column.setText(res.getString(j));
-                    column.setTextColor(Color.BLACK);
-                    row.addView(column);
+            for (int j = 0; j < res.getColumnCount(); j++) {
+                String item = res.getColumnName(j) + ": " + res.getString(j);
+
+                if (res.getColumnName(j).equals(EnergyMonitorDbHelper.COLUMN_NAME_TIMESTAMP)) {
+                    Date d = new Date(res.getLong(j));
+                    title = DateFormat.getDateTimeInstance().format(d);
+                    item = item + " (" + title + ")";
                 }
-                tableLayout.addView(row);
-                res.moveToNext();
+                items.add(item);
             }
 
-            setTextView("nop");
+            addNewDataToListView(title, items);
 
             res.close();
             db.close();
@@ -369,5 +388,18 @@ public class ConfigActivity extends AppCompatActivity {
             return true;
         }
         return false;
+    }
+
+
+    /**
+     * Add a new item to the expandable list view
+     *
+     * @param title Title of new item
+     * @param items The corresponding List including all items
+     */
+    private void addNewDataToListView(String title, List<String> items) {
+        listDataHeader.add(title);
+        listDataChild.put(title, items);
+        listAdapter.notifyDataSetChanged();
     }
 }
