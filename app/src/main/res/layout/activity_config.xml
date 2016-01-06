@@ -23,21 +23,11 @@
         android:onClick="flushDb"
         android:layout_weight="1" />
     </LinearLayout>
-    <TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:layout_width="match_parent"
+    <ExpandableListView
+        android:id="@+id/expandableListView"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:id="@+id/table_layout">
-
-    </TableLayout>
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:text="@string/no_data"
-        android:id="@+id/dataOutput" />
-
+        android:layout_weight="4"
+        android:layout_width="match_parent"/>
     <CheckBox
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
