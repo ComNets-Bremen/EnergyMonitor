@@ -13,7 +13,7 @@
     <string name="measurements_stopped">Measurements stopped</string>
     <string name="measurements_already_stopped">No Measurements running</string>
     <string name="not_initialized" />
-    <string name="no_write_access">"Cannot export file: No write access to data directory"</string>
+    <string name="no_write_access">"Cannot export file: No write access to data directory. Maybe no access granted?"</string>
     <string name="measurement_status_running">Measurements running</string>
     <string name="measurement_status_stopped">Measurements stopped</string>
     <string name="flush_db_message">Do you really want to flush the database?</string>
@@ -22,4 +22,6 @@
     <string name="ok">Ok</string>
     <string name="cancel">Cancel</string>
     <string name="aborted">Aborted</string>
+    <string name="write_access_title">Write access needed</string>
+    <string name="write_access_message">To export data, write access to the external storage is required</string>
 </resources>

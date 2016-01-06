@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
@@ -14,6 +15,8 @@ import android.os.AsyncTask;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Environment;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -33,21 +36,23 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
+import android.Manifest;
+
 public class ConfigActivity extends AppCompatActivity {
-    BroadcastReceiver batteryReceiver = null;
-    boolean batteryReceiverRegistered = false;
-    IntentFilter batteryReceiverFilter = null;
-
-    EnergyMonitorDbHelper myEnergyDb = null;
-
     public static final String LOG_TAG = "ConfigActivity";
     public static final int SHOW_N_LAST_ROWS = 5;
 
+    private static final int PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE = 1;
+
+    BroadcastReceiver batteryReceiver = null;
+    boolean batteryReceiverRegistered = false;
+    IntentFilter batteryReceiverFilter = null;
+    EnergyMonitorDbHelper myEnergyDb = null;
     ExpandableListAdapter listAdapter;
     ExpandableListView expListView;
     List<String> listDataHeader;
     HashMap<String, List<String>> listDataChild;
-    
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -102,10 +107,7 @@ public class ConfigActivity extends AppCompatActivity {
                     values.put(EnergyMonitorDbHelper.COLUMN_NAME_CHG_USB, usbCharge);
                     values.put(EnergyMonitorDbHelper.COLUMN_NAME_PERCENTAGE, level);
 
-                    // Toast.makeText(getApplicationContext(), "Values to be inserted into table: " + values.toString(), Toast.LENGTH_SHORT).show();
-
                     new InsertIntoDb().execute(values);
-
                 }
             };
 
@@ -125,13 +127,84 @@ public class ConfigActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+
+    /**
+     * Executed when a certain permission is requested
+     *
+     * @param requestCode
+     * @param permissions
+     * @param grantResults
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    new ExportDb().execute(EnergyMonitorDbHelper.TABLE_NAME);
+
+                } else {
+                    notifyUser(R.string.no_write_access);
+                }
+                return;
+            }
+
+            // other 'case' lines to check for other
+            // permissions this app might request
+        }
+    }
+
+    /**
+     * Used to request permissions out of an onClick handler
+     *
+     * @param permissions
+     * @param requestCode
+     */
+    public void myRequestPermissions(String[] permissions, int requestCode){
+        ActivityCompat.requestPermissions(this, permissions, requestCode);
+    }
+
+
     /**
      * Export the database
      *
      * @param view
      */
     public void exportDb(View view) {
-        new ExportDb().execute(EnergyMonitorDbHelper.TABLE_NAME);
+Log.e(LOG_TAG, "export");
+        // Here, thisActivity is the current activity
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                Log.e(LOG_TAG, "request");
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setMessage(R.string.write_access_message)
+                        .setTitle(R.string.write_access_title);
+                builder.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        myRequestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                                PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE);
+                    }
+                });
+
+                AlertDialog dialog = builder.create();
+                dialog.show();
+
+            } else {
+                Log.e(LOG_TAG, "requested");
+                myRequestPermissions(
+                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE);
+            }
+        } else {
+            new ExportDb().execute(EnergyMonitorDbHelper.TABLE_NAME);
+        }
     }
 
     /**
@@ -203,7 +276,7 @@ public class ConfigActivity extends AppCompatActivity {
     /**
      * Debug output: Output given text in text view and as a toast
      *
-     * @param text  The Text itself
+     * @param text The Text itself
      */
     public void notifyUser(String text) {
         Context context = getApplicationContext();
@@ -213,110 +286,24 @@ public class ConfigActivity extends AppCompatActivity {
 
     /**
      * Wrapper for notifyUser: Accepts id from string resources
-     * @param id    The string id
+     *
+     * @param id The string id
      */
-    public void notifyUser(int id){
+    public void notifyUser(int id) {
         notifyUser(getResources().getString(id));
     }
 
-
     /**
-     * Async Task for exporting the db to a csv file
+     * Add a new item to the expandable list view
+     *
+     * @param title Title of new item
+     * @param items The corresponding List including all items
      */
-    private class ExportDb extends AsyncTask<String, Void, String> {
-        protected String doInBackground(String... tables) {
-            int count = tables.length;
-            String lastFilename = "";
-
-            SimpleDateFormat sdf = new SimpleDateFormat(getResources().getString(R.string.output_file_format));
-
-            if (!isExternalStorageWritable()) {
-                Log.e(LOG_TAG, "Directory not accessible");
-                return null;
-            }
-            for (int i = 0; i < count; i++) {
-
-                File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-
-                if (!(dir.exists() && dir.isDirectory())) {
-                    dir.mkdirs();
-                }
-
-                File output = new File(dir, Build.PRODUCT + "_" + tables[i] + "_" + sdf.format(new Date()) + ".csv");
-
-                if (output == null) {
-                    Log.e(LOG_TAG, "Cannot create output file.");
-                    return null;
-                }
-
-                try {
-
-                    if (!output.exists()) {
-                        Log.e(LOG_TAG, "File does not exists: " + output.toString());
-                        try {
-                            output.createNewFile();
-                        } catch (IOException e) {
-                            Log.e(LOG_TAG, "Cannot create new file!");
-                            e.printStackTrace();
-                        }
-
-                    }
-
-                    FileOutputStream fos = new FileOutputStream(output);
-                    OutputStreamWriter fosw = new OutputStreamWriter(fos);
-
-                    SQLiteDatabase db = myEnergyDb.getReadableDatabase();
-
-                    Cursor res = db.rawQuery("select * from " + tables[0], null);
-                    String row = "";
-                    for (int j = 0; j < res.getColumnCount(); j++) {
-                        row += res.getColumnName(j) + ",";
-                    }
-                    row += "\n";
-                    fosw.write(row);
-
-                    res.moveToFirst();
-                    while (res.isAfterLast() == false) {
-                        row = "";
-                        for (int j = 0; j < res.getColumnCount(); j++) {
-                            row += res.getString(j) + ",";
-                        }
-                        row += "\n";
-                        fosw.write(row);
-                        res.moveToNext();
-                    }
-                    res.close();
-                    db.close();
-                    fosw.close();
-                    fos.close();
-
-                    lastFilename = output.getAbsolutePath().toString();
-
-                } catch (IOException e) {
-                    Log.e(LOG_TAG, "IOException!");
-                    e.printStackTrace();
-                    return null;
-                }
-            }
-            return lastFilename;
-        }
-
-        protected void onPostExecute(String lastFile) {
-            //Toast.makeText(getApplicationContext(), "Insert done. Last file: " + file, Toast.LENGTH_SHORT).show();
-            if (lastFile != null) {
-                Intent sendIntent = new Intent();
-                sendIntent.setAction(Intent.ACTION_SEND);
-                sendIntent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(new File(lastFile)));
-                sendIntent.setType("text/plain");
-                startActivity(Intent.createChooser(sendIntent, getResources().getText(R.string.send_csv_to)));
-            } else {
-                Toast.makeText(getApplicationContext(), getResources().getString(R.string.no_write_access), Toast.LENGTH_SHORT).show();
-                Log.e(LOG_TAG, "lastFile is null.");
-            }
-            return;
-        }
+    private void addNewDataToListView(String title, List<String> items) {
+        listDataHeader.add(title);
+        listDataChild.put(title, items);
+        listAdapter.notifyDataSetChanged();
     }
-
 
     /**
      * Async Task Insert Data into database
@@ -372,30 +359,113 @@ public class ConfigActivity extends AppCompatActivity {
 
     }
 
+    public class ExportDb extends AsyncTask<String, Void, String> {
 
-    /**
-     * Check if the external storage is mounted and writable
-     *
-     * @return true if writable
-     */
-    private static boolean isExternalStorageWritable() {
-        String state = Environment.getExternalStorageState();
-        if (Environment.MEDIA_MOUNTED.equals(state)) {
-            return true;
+        protected String doInBackground(String... tables) {
+            int count = tables.length;
+            String lastFilename = "";
+
+
+            SimpleDateFormat sdf = new SimpleDateFormat(getResources().getString(R.string.output_file_format));
+
+            if (!isExternalStorageWritable()) {
+                Log.e(LOG_TAG, "Directory not accessible");
+                return null;
+            }
+            for (int i = 0; i < count; i++) {
+
+                File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+
+                if (!(dir.exists() && dir.isDirectory())) {
+                    dir.mkdirs();
+                }
+
+                File output = new File(dir, tables[i] + "_" + sdf.format(new Date()) + ".csv");
+
+                if (output == null) {
+                    Log.e(LOG_TAG, "Cannot create output file.");
+                    return null;
+                }
+
+                try {
+
+                    if (!output.exists()) {
+                        Log.e(LOG_TAG, "File does not exists, will try to create it: " + output.toString());
+                        try {
+                            output.createNewFile();
+                        } catch (IOException e) {
+                            Log.e(LOG_TAG, "Cannot create new file!");
+                            e.printStackTrace();
+                        }
+
+                    }
+
+                    FileOutputStream fos = new FileOutputStream(output);
+                    OutputStreamWriter fosw = new OutputStreamWriter(fos);
+
+                    SQLiteDatabase db = myEnergyDb.getReadableDatabase();
+
+                    Cursor res = db.rawQuery("select * from " + tables[0], null);
+                    String row = "";
+                    for (int j = 0; j < res.getColumnCount(); j++) {
+                        row += res.getColumnName(j) + ",";
+                    }
+                    row += "\n";
+                    fosw.write(row);
+
+                    res.moveToFirst();
+                    while (res.isAfterLast() == false) {
+                        row = "";
+                        for (int j = 0; j < res.getColumnCount(); j++) {
+                            row += res.getString(j) + ",";
+                        }
+                        row += "\n";
+                        fosw.write(row);
+                        res.moveToNext();
+                    }
+                    res.close();
+                    db.close();
+                    fosw.close();
+                    fos.close();
+
+                    lastFilename = output.getAbsolutePath().toString();
+
+                } catch (IOException e) {
+                    Log.e(LOG_TAG, "IOException!");
+                    e.printStackTrace();
+                    return null;
+                }
+            }
+            return lastFilename;
         }
-        return false;
+
+        protected void onPostExecute(String lastFile) {
+            if (lastFile != null) {
+                Intent sendIntent = new Intent();
+                sendIntent.setAction(Intent.ACTION_SEND);
+                sendIntent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(new File(lastFile)));
+                sendIntent.setType("text/plain");
+                startActivity(Intent.createChooser(sendIntent, getResources().getText(R.string.send_csv_to)));
+            } else {
+                notifyUser(R.string.no_write_access);
+                Log.e(LOG_TAG, "lastFile is null.");
+            }
+            return;
+        }
+
+        /**
+         * Check if the external storage is mounted and writable
+         *
+         * @return true if writable
+         */
+        private boolean isExternalStorageWritable() {
+            String state = Environment.getExternalStorageState();
+            if (Environment.MEDIA_MOUNTED.equals(state)) {
+                return true;
+            }
+            return false;
+        }
+
     }
 
-
-    /**
-     * Add a new item to the expandable list view
-     *
-     * @param title Title of new item
-     * @param items The corresponding List including all items
-     */
-    private void addNewDataToListView(String title, List<String> items) {
-        listDataHeader.add(title);
-        listDataChild.put(title, items);
-        listAdapter.notifyDataSetChanged();
-    }
 }
