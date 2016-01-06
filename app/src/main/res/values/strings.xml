@@ -16,4 +16,10 @@
     <string name="no_write_access">"Cannot export file: No write access to data directory"</string>
     <string name="measurement_status_running">Measurements running</string>
     <string name="measurement_status_stopped">Measurements stopped</string>
+    <string name="flush_db_message">Do you really want to flush the database?</string>
+    <string name="flush_db_title">Flush database</string>
+    <string name="db_flushed">Databased flushed</string>
+    <string name="ok">Ok</string>
+    <string name="cancel">Cancel</string>
+    <string name="aborted">Aborted</string>
 </resources>
