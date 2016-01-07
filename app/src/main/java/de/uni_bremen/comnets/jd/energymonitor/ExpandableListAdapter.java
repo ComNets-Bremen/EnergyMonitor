@@ -1,6 +1,7 @@
 package de.uni_bremen.comnets.jd.energymonitor;
 
 import android.content.Context;
+import android.database.Cursor;
 import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -15,36 +16,34 @@ import java.util.List;
  * Created by jd on 06.01.16.
  */
 public class ExpandableListAdapter extends BaseExpandableListAdapter {
-    private Context _context;
-    private List<String> _listDataHeader;
+    private Context context;
+    private EnergyDbAdaper dbAdaper;
+
     private HashMap<String, List<String>> _listDataChild;
 
-        public ExpandableListAdapter(Context context, List<String> listDataHeader,
-            HashMap<String, List<String>> listChildData) {
-        this._context = context;
-        this._listDataHeader = listDataHeader;
-        this._listDataChild = listChildData;
+        public ExpandableListAdapter(Context context, EnergyDbAdaper dbAdaper) {
+            this.context = context;
+            this.dbAdaper = dbAdaper;
     }
 
     @Override
     public Object getChild(int groupPosition, int childPosititon) {
-        return this._listDataChild.get(this._listDataHeader.get(groupPosition))
-                .get(childPosititon);
+        return dbAdaper.getChildDataById(groupPosition);
     }
 
     @Override
     public long getChildId(int groupPosition, int childPosition) {
-        return childPosition;
+        return groupPosition;
     }
 
     @Override
     public View getChildView(int groupPosition, final int childPosition,
                              boolean isLastChild, View convertView, ViewGroup parent) {
 
-        final String childText = (String) getChild(groupPosition, childPosition);
+        final String childText = (String) getChild(groupPosition, childPosition).toString();
 
         if (convertView == null) {
-            LayoutInflater infalInflater = (LayoutInflater) this._context
+            LayoutInflater infalInflater = (LayoutInflater) this.context
                     .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
             convertView = infalInflater.inflate(R.layout.list_item, null);
         }
@@ -58,18 +57,17 @@ public class ExpandableListAdapter extends BaseExpandableListAdapter {
 
     @Override
     public int getChildrenCount(int groupPosition) {
-        return this._listDataChild.get(this._listDataHeader.get(groupPosition))
-                .size();
+        return 1;
     }
 
     @Override
     public Object getGroup(int groupPosition) {
-        return this._listDataHeader.get(groupPosition);
+        return dbAdaper.getGroupHeadingById(groupPosition);
     }
 
     @Override
     public int getGroupCount() {
-        return this._listDataHeader.size();
+        return dbAdaper.getSize();
     }
 
     @Override
@@ -82,7 +80,7 @@ public class ExpandableListAdapter extends BaseExpandableListAdapter {
                              View convertView, ViewGroup parent) {
         String headerTitle = (String) getGroup(groupPosition);
         if (convertView == null) {
-            LayoutInflater infalInflater = (LayoutInflater) this._context
+            LayoutInflater infalInflater = (LayoutInflater) this.context
                     .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
             convertView = infalInflater.inflate(R.layout.list_group, null);
         }

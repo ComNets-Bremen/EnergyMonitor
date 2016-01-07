@@ -13,14 +13,14 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/button_export_db"
-        android:onClick="exportDb"
+        android:onClick="exportDbClickHandler"
         android:layout_weight="1" />
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/button_flush_db"
-        android:onClick="flushDb"
+        android:onClick="flushDbClickHandler"
         android:layout_weight="1" />
     </LinearLayout>
     <ExpandableListView

@@ -1,5 +1,6 @@
 package de.uni_bremen.comnets.jd.energymonitor;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ContentValues;
@@ -9,27 +10,25 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.BatteryManager;
-import android.os.Build;
 import android.os.Environment;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.ExpandableListView;
+import android.widget.SimpleCursorAdapter;
 import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.text.DateFormat;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -38,26 +37,39 @@ import java.util.List;
 
 import android.Manifest;
 
-public class ConfigActivity extends AppCompatActivity {
+public class ConfigActivity extends Activity {
     public static final String LOG_TAG = "ConfigActivity";
-    public static final int SHOW_N_LAST_ROWS = 5;
 
     private static final int PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE = 1;
 
-    BroadcastReceiver batteryReceiver = null;
-    boolean batteryReceiverRegistered = false;
-    IntentFilter batteryReceiverFilter = null;
-    EnergyMonitorDbHelper myEnergyDb = null;
+    private BroadcastReceiver batteryReceiver = null;
+    private boolean batteryReceiverRegistered = false;
+    private IntentFilter batteryReceiverFilter = null;
+
+    private EnergyDbAdaper dbHelper;
+    private SimpleCursorAdapter dataAdapter;
+
+// TODO: CHECK
     ExpandableListAdapter listAdapter;
     ExpandableListView expListView;
     List<String> listDataHeader;
     HashMap<String, List<String>> listDataChild;
-
+// TODO: End check
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_config);
+
+        // DB Related stuff
+        try{
+            dbHelper = new EnergyDbAdaper(this);
+            dbHelper.open();
+        } catch (SQLException e){
+            e.printStackTrace();
+            dbHelper = null;
+            // Todo: Handle?
+        }
 
         // List View start
 
@@ -67,16 +79,13 @@ public class ConfigActivity extends AppCompatActivity {
         // get the listview
         expListView = (ExpandableListView) findViewById(R.id.expandableListView);
 
-        listAdapter = new ExpandableListAdapter(this, listDataHeader, listDataChild);
+        listAdapter = new ExpandableListAdapter(this, dbHelper);
 
         // setting list adapter
         expListView.setAdapter(listAdapter);
 
         // List View end
 
-        if (myEnergyDb == null) {
-            myEnergyDb = new EnergyMonitorDbHelper(getApplicationContext());
-        }
 
         if (batteryReceiver == null) {
             batteryReceiver = new BroadcastReceiver() {
@@ -101,13 +110,15 @@ public class ConfigActivity extends AppCompatActivity {
 
 
                     ContentValues values = new ContentValues();
-                    values.put(EnergyMonitorDbHelper.COLUMN_NAME_CHARGING, isCharging);
-                    values.put(EnergyMonitorDbHelper.COLUMN_NAME_TIMESTAMP, currentTime);
-                    values.put(EnergyMonitorDbHelper.COLUMN_NAME_CHG_AC, acCharge);
-                    values.put(EnergyMonitorDbHelper.COLUMN_NAME_CHG_USB, usbCharge);
-                    values.put(EnergyMonitorDbHelper.COLUMN_NAME_PERCENTAGE, level);
+                    values.put(EnergyDbAdaper.COLUMN_NAME_CHARGING, isCharging);
+                    values.put(EnergyDbAdaper.COLUMN_NAME_TIMESTAMP, currentTime);
+                    values.put(EnergyDbAdaper.COLUMN_NAME_CHG_AC, acCharge);
+                    values.put(EnergyDbAdaper.COLUMN_NAME_CHG_USB, usbCharge);
+                    values.put(EnergyDbAdaper.COLUMN_NAME_PERCENTAGE, level);
 
-                    new InsertIntoDb().execute(values);
+                    dbHelper.appendData(values);
+                    listAdapter.notifyDataSetChanged();
+
                 }
             };
 
@@ -127,7 +138,6 @@ public class ConfigActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
-
     /**
      * Executed when a certain permission is requested
      *
@@ -143,7 +153,7 @@ public class ConfigActivity extends AppCompatActivity {
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    new ExportDb().execute(EnergyMonitorDbHelper.TABLE_NAME);
+                    new ExportDb().execute(dbHelper.getAllData());
 
                 } else {
                     notifyUser(R.string.no_write_access);
@@ -172,9 +182,8 @@ public class ConfigActivity extends AppCompatActivity {
      *
      * @param view
      */
-    public void exportDb(View view) {
-Log.e(LOG_TAG, "export");
-        // Here, thisActivity is the current activity
+    public void exportDbClickHandler(View view) {
+    Log.e(LOG_TAG, "export");
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -203,7 +212,7 @@ Log.e(LOG_TAG, "export");
                         PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE);
             }
         } else {
-            new ExportDb().execute(EnergyMonitorDbHelper.TABLE_NAME);
+            new ExportDb().execute(dbHelper.getAllData());
         }
     }
 
@@ -212,14 +221,15 @@ Log.e(LOG_TAG, "export");
      *
      * @param view
      */
-    public void flushDb(View view) {
+    public void flushDbClickHandler(View view) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setMessage(R.string.flush_db_message)
                 .setTitle(R.string.flush_db_title);
         builder.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                myEnergyDb.flushDb();
+                dbHelper.flushDb();
+                listAdapter.notifyDataSetChanged();
                 notifyUser(R.string.db_flushed);
             }
         });
@@ -305,66 +315,16 @@ Log.e(LOG_TAG, "export");
         listAdapter.notifyDataSetChanged();
     }
 
-    /**
-     * Async Task Insert Data into database
-     */
-    private class InsertIntoDb extends AsyncTask<ContentValues, Integer, Long> {
-        protected Long doInBackground(ContentValues... values) {
-            SQLiteDatabase db = myEnergyDb.getWritableDatabase();
-
-            Long lastRowId = (long) -1;
-            int count = values.length;
-            for (int i = 0; i < count; i++) {
-
-                lastRowId = db.insert(
-                        EnergyMonitorDbHelper.TABLE_NAME,
-                        null,
-                        values[i]
-                );
-                if (isCancelled()) break;
-            }
-            db.close();
-            myEnergyDb.close();
 
 
-            return lastRowId;
-        }
 
-        protected void onPostExecute(Long rowId) {
-            //Toast.makeText(getApplicationContext(), "Insert done. Last ID: " + rowId, Toast.LENGTH_SHORT).show();
-            SQLiteDatabase db = myEnergyDb.getReadableDatabase();
-            Cursor res = db.rawQuery("select * from " + EnergyMonitorDbHelper.TABLE_NAME + " where " + EnergyMonitorDbHelper.COLUMN_NAME_ID + "=" + rowId, null);
-            res.moveToFirst();
 
-            String title = "";
-            List<String> items = new ArrayList<String>();
 
-            for (int j = 0; j < res.getColumnCount(); j++) {
-                String item = res.getColumnName(j) + ": " + res.getString(j);
+    public class ExportDb extends AsyncTask<Cursor, Void, String> {
 
-                if (res.getColumnName(j).equals(EnergyMonitorDbHelper.COLUMN_NAME_TIMESTAMP)) {
-                    Date d = new Date(res.getLong(j));
-                    title = DateFormat.getDateTimeInstance().format(d);
-                    item = item + " (" + title + ")";
-                }
-                items.add(item);
-            }
-
-            addNewDataToListView(title, items);
-
-            res.close();
-            db.close();
-            myEnergyDb.close();
-        }
-
-    }
-
-    public class ExportDb extends AsyncTask<String, Void, String> {
-
-        protected String doInBackground(String... tables) {
-            int count = tables.length;
+        protected String doInBackground(Cursor... cursors) {
+            int count = cursors.length;
             String lastFilename = "";
-
 
             SimpleDateFormat sdf = new SimpleDateFormat(getResources().getString(R.string.output_file_format));
 
@@ -380,7 +340,7 @@ Log.e(LOG_TAG, "export");
                     dir.mkdirs();
                 }
 
-                File output = new File(dir, tables[i] + "_" + sdf.format(new Date()) + ".csv");
+                File output = new File(dir, "Energy-Table_" + sdf.format(new Date()) + ".csv");
 
                 if (output == null) {
                     Log.e(LOG_TAG, "Cannot create output file.");
@@ -403,9 +363,7 @@ Log.e(LOG_TAG, "export");
                     FileOutputStream fos = new FileOutputStream(output);
                     OutputStreamWriter fosw = new OutputStreamWriter(fos);
 
-                    SQLiteDatabase db = myEnergyDb.getReadableDatabase();
-
-                    Cursor res = db.rawQuery("select * from " + tables[0], null);
+                    Cursor res = cursors[i];
                     String row = "";
                     for (int j = 0; j < res.getColumnCount(); j++) {
                         row += res.getColumnName(j) + ",";
@@ -423,8 +381,6 @@ Log.e(LOG_TAG, "export");
                         fosw.write(row);
                         res.moveToNext();
                     }
-                    res.close();
-                    db.close();
                     fosw.close();
                     fos.close();
 
