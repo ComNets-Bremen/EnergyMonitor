@@ -43,8 +43,7 @@ public class ConfigActivity extends Activity {
     private boolean batteryReceiverRegistered = false;
     private IntentFilter batteryReceiverFilter = null;
 
-    private EnergyDbAdapter dbAdapter;
-    private SimpleCursorAdapter dataAdapter;
+    private EnergyDbAdapter dbAdapter = null;
 
     // TODO: CHECK
     ExpandableListAdapter listAdapter;
@@ -60,13 +59,16 @@ public class ConfigActivity extends Activity {
 
         // DB Related stuff
         try {
-            dbAdapter = new EnergyDbAdapter(this);
-            dbAdapter.open();
+            if (dbAdapter == null) {
+                dbAdapter = new EnergyDbAdapter(this);
+                dbAdapter.open();
+            }
         } catch (SQLException e) {
             e.printStackTrace();
             dbAdapter = null;
             // Todo: Handle?
         }
+        Log.e(LOG_TAG, "dbAdapter id: " + dbAdapter.toString());
 
         // List View start
 
@@ -113,7 +115,9 @@ public class ConfigActivity extends Activity {
                     values.put(EnergyDbAdapter.COLUMN_NAME_CHG_USB, usbCharge);
                     values.put(EnergyDbAdapter.COLUMN_NAME_PERCENTAGE, level);
 
-                    dbAdapter.appendData(values);
+                    if (dbAdapter.appendData(values) == -1){
+                        Log.e(LOG_TAG, "Cannot insert data into database!");
+                    }
                     listAdapter.notifyDataSetChanged();
 
                 }
@@ -128,11 +132,23 @@ public class ConfigActivity extends Activity {
         setMeasurementsEnable(true);
     }
 
+    /**
+     * App is exited. Stopp all measurements, unregister everything
+     */
     @Override
     protected void onDestroy() {
         setMeasurementsEnable(false);
 
         super.onDestroy();
+    }
+
+    /**
+     * App is in the background. Remove unneeded (cached) data from the memory
+     */
+    @Override
+    public void onStop() {
+        dbAdapter.tidyup();
+        super.onStop();
     }
 
     /**
@@ -351,7 +367,7 @@ public class ConfigActivity extends Activity {
             }
 
 
-            if (dbAdapter.writeToFile(output) != 0){
+            if (dbAdapter.writeToFile(output) != 0) {
                 return null;
             }
 

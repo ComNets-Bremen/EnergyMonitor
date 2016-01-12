@@ -2,6 +2,7 @@ package de.uni_bremen.comnets.jd.energymonitor;
 
 import android.content.Context;
 import android.graphics.Typeface;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,17 +13,25 @@ import java.util.HashMap;
 import java.util.List;
 
 /**
- * Created by jd on 06.01.16.
+ * @author Jens Dede, jd@comnets.uni-bremen.de
  */
 public class ExpandableListAdapter extends BaseExpandableListAdapter {
-    private Context context;
-    private EnergyDbAdapter dbAdapter;
+    // Log tag for error logging
+    public static final String LOG_TAG = "ExpandableListAdapter";
 
-    private HashMap<String, List<String>> _listDataChild;
+    private Context context;            // The calling context
+    private EnergyDbAdapter dbAdapter;  // Adapter to access the db with the measurements
 
-        public ExpandableListAdapter(Context context, EnergyDbAdapter dbAdapter) {
-            this.context = context;
-            this.dbAdapter = dbAdapter;
+    /**
+     * Default constructor
+     *
+     * @param context       The calling context
+     * @param dbAdapter     An adapter to access the db with the data
+     */
+    public ExpandableListAdapter(Context context, EnergyDbAdapter dbAdapter) {
+        this.context = context;
+        this.dbAdapter = dbAdapter;
+        Log.e(LOG_TAG, "dbAdapter id: " + dbAdapter.toString());
     }
 
     @Override
@@ -61,12 +70,12 @@ public class ExpandableListAdapter extends BaseExpandableListAdapter {
 
     @Override
     public Object getGroup(int groupPosition) {
-        return dbAdapter.getGroupHeadingById(groupPosition);
+        return dbAdapter.getCachedGroupHeadingById(groupPosition);
     }
 
     @Override
     public int getGroupCount() {
-        return dbAdapter.getSize();
+        return (int) dbAdapter.getSize();
     }
 
     @Override
@@ -79,9 +88,9 @@ public class ExpandableListAdapter extends BaseExpandableListAdapter {
                              View convertView, ViewGroup parent) {
         String headerTitle = (String) getGroup(groupPosition);
         if (convertView == null) {
-            LayoutInflater infalInflater = (LayoutInflater) this.context
+            LayoutInflater inflater = (LayoutInflater) this.context
                     .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-            convertView = infalInflater.inflate(R.layout.list_group, null);
+            convertView = inflater.inflate(R.layout.list_group, null);
         }
 
         TextView lblListHeader = (TextView) convertView
