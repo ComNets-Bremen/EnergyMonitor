@@ -53,7 +53,7 @@ public final class EnergyDbAdapter {
 
     private final Context context;
     private DatabaseHelper mDbHelper;
-    private static SQLiteDatabase mDb = null;
+    private SQLiteDatabase mDb = null;
 
     private static class DatabaseHelper extends SQLiteOpenHelper {
 
@@ -95,9 +95,12 @@ public final class EnergyDbAdapter {
     }
 
     public void close() {
-//        if (mDbHelper != null) {
-//            mDbHelper.close();
- //       }
+        if (mDb != null){
+            mDb.close();
+        }
+        if (mDbHelper != null) {
+            mDbHelper.close();
+        }
     }
 
     public void flushDb() {
@@ -171,11 +174,7 @@ public final class EnergyDbAdapter {
 
 
     public int getSize() {
-        int count;
-        synchronized (mDb) {
-            count = getGroupData().getCount();
-        }
-        return count;
+        return getGroupData().getCount();
     }
 
     private Cursor getAllData() {
@@ -201,7 +200,6 @@ public final class EnergyDbAdapter {
             OutputStreamWriter fosw = new OutputStreamWriter(fos);
 
             synchronized (mDb) {
-
                 Cursor cur = getAllData();
 
                 String row = "";

@@ -9,7 +9,6 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.BatteryManager;
@@ -25,9 +24,7 @@ import android.widget.SimpleCursorAdapter;
 import android.widget.Toast;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -46,10 +43,10 @@ public class ConfigActivity extends Activity {
     private boolean batteryReceiverRegistered = false;
     private IntentFilter batteryReceiverFilter = null;
 
-    private EnergyDbAdaper dbHelper;
+    private EnergyDbAdapter dbAdapter;
     private SimpleCursorAdapter dataAdapter;
 
-// TODO: CHECK
+    // TODO: CHECK
     ExpandableListAdapter listAdapter;
     ExpandableListView expListView;
     List<String> listDataHeader;
@@ -57,17 +54,17 @@ public class ConfigActivity extends Activity {
 // TODO: End check
 
     @Override
-    protected void onCreate(Bundle savedInstanceState){
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_config);
 
         // DB Related stuff
-        try{
-            dbHelper = new EnergyDbAdaper(this);
-            dbHelper.open();
-        } catch (SQLException e){
+        try {
+            dbAdapter = new EnergyDbAdapter(this);
+            dbAdapter.open();
+        } catch (SQLException e) {
             e.printStackTrace();
-            dbHelper = null;
+            dbAdapter = null;
             // Todo: Handle?
         }
 
@@ -79,7 +76,7 @@ public class ConfigActivity extends Activity {
         // get the listview
         expListView = (ExpandableListView) findViewById(R.id.expandableListView);
 
-        listAdapter = new ExpandableListAdapter(this, dbHelper);
+        listAdapter = new ExpandableListAdapter(this, dbAdapter);
 
         // setting list adapter
         expListView.setAdapter(listAdapter);
@@ -110,13 +107,13 @@ public class ConfigActivity extends Activity {
 
 
                     ContentValues values = new ContentValues();
-                    values.put(EnergyDbAdaper.COLUMN_NAME_CHARGING, isCharging);
-                    values.put(EnergyDbAdaper.COLUMN_NAME_TIMESTAMP, currentTime);
-                    values.put(EnergyDbAdaper.COLUMN_NAME_CHG_AC, acCharge);
-                    values.put(EnergyDbAdaper.COLUMN_NAME_CHG_USB, usbCharge);
-                    values.put(EnergyDbAdaper.COLUMN_NAME_PERCENTAGE, level);
+                    values.put(EnergyDbAdapter.COLUMN_NAME_CHARGING, isCharging);
+                    values.put(EnergyDbAdapter.COLUMN_NAME_TIMESTAMP, currentTime);
+                    values.put(EnergyDbAdapter.COLUMN_NAME_CHG_AC, acCharge);
+                    values.put(EnergyDbAdapter.COLUMN_NAME_CHG_USB, usbCharge);
+                    values.put(EnergyDbAdapter.COLUMN_NAME_PERCENTAGE, level);
 
-                    dbHelper.appendData(values);
+                    dbAdapter.appendData(values);
                     listAdapter.notifyDataSetChanged();
 
                 }
@@ -153,7 +150,7 @@ public class ConfigActivity extends Activity {
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    new ExportDb().execute(dbHelper.getAllData());
+                    new ExportDb().execute();
 
                 } else {
                     notifyUser(R.string.no_write_access);
@@ -172,7 +169,7 @@ public class ConfigActivity extends Activity {
      * @param permissions
      * @param requestCode
      */
-    public void myRequestPermissions(String[] permissions, int requestCode){
+    public void myRequestPermissions(String[] permissions, int requestCode) {
         ActivityCompat.requestPermissions(this, permissions, requestCode);
     }
 
@@ -183,7 +180,7 @@ public class ConfigActivity extends Activity {
      * @param view
      */
     public void exportDbClickHandler(View view) {
-    Log.e(LOG_TAG, "export");
+        Log.e(LOG_TAG, "export");
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -212,7 +209,7 @@ public class ConfigActivity extends Activity {
                         PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE);
             }
         } else {
-            new ExportDb().execute(dbHelper.getAllData());
+            new ExportDb().execute();
         }
     }
 
@@ -228,7 +225,7 @@ public class ConfigActivity extends Activity {
         builder.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                dbHelper.flushDb();
+                dbAdapter.flushDb();
                 listAdapter.notifyDataSetChanged();
                 notifyUser(R.string.db_flushed);
             }
@@ -316,14 +313,9 @@ public class ConfigActivity extends Activity {
     }
 
 
+    public class ExportDb extends AsyncTask<Void, Void, String> {
 
-
-
-
-    public class ExportDb extends AsyncTask<Cursor, Void, String> {
-
-        protected String doInBackground(Cursor... cursors) {
-            int count = cursors.length;
+        protected String doInBackground(Void... voids) {
             String lastFilename = "";
 
             SimpleDateFormat sdf = new SimpleDateFormat(getResources().getString(R.string.output_file_format));
@@ -332,67 +324,38 @@ public class ConfigActivity extends Activity {
                 Log.e(LOG_TAG, "Directory not accessible");
                 return null;
             }
-            for (int i = 0; i < count; i++) {
 
-                File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
 
-                if (!(dir.exists() && dir.isDirectory())) {
-                    dir.mkdirs();
-                }
+            File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
 
-                File output = new File(dir, "Energy-Table_" + sdf.format(new Date()) + ".csv");
-
-                if (output == null) {
-                    Log.e(LOG_TAG, "Cannot create output file.");
-                    return null;
-                }
-
-                try {
-
-                    if (!output.exists()) {
-                        Log.e(LOG_TAG, "File does not exists, will try to create it: " + output.toString());
-                        try {
-                            output.createNewFile();
-                        } catch (IOException e) {
-                            Log.e(LOG_TAG, "Cannot create new file!");
-                            e.printStackTrace();
-                        }
-
-                    }
-
-                    FileOutputStream fos = new FileOutputStream(output);
-                    OutputStreamWriter fosw = new OutputStreamWriter(fos);
-
-                    Cursor res = cursors[i];
-                    String row = "";
-                    for (int j = 0; j < res.getColumnCount(); j++) {
-                        row += res.getColumnName(j) + ",";
-                    }
-                    row += "\n";
-                    fosw.write(row);
-
-                    res.moveToFirst();
-                    while (res.isAfterLast() == false) {
-                        row = "";
-                        for (int j = 0; j < res.getColumnCount(); j++) {
-                            row += res.getString(j) + ",";
-                        }
-                        row += "\n";
-                        fosw.write(row);
-                        res.moveToNext();
-                    }
-                    fosw.close();
-                    fos.close();
-
-                    lastFilename = output.getAbsolutePath().toString();
-
-                } catch (IOException e) {
-                    Log.e(LOG_TAG, "IOException!");
-                    e.printStackTrace();
-                    return null;
-                }
+            if (!(dir.exists() && dir.isDirectory())) {
+                dir.mkdirs();
             }
-            return lastFilename;
+
+            File output = new File(dir, "Energy-Table_" + sdf.format(new Date()) + ".csv");
+
+            if (output == null) {
+                Log.e(LOG_TAG, "Cannot create output file.");
+                return null;
+            }
+
+            if (!output.exists()) {
+                Log.e(LOG_TAG, "File does not exists, will try to create it: " + output.toString());
+                try {
+                    output.createNewFile();
+                } catch (IOException e) {
+                    Log.e(LOG_TAG, "Cannot create new file!");
+                    e.printStackTrace();
+                }
+
+            }
+
+
+            if (dbAdapter.writeToFile(output) != 0){
+                return null;
+            }
+
+            return output.getAbsolutePath().toString();
         }
 
         protected void onPostExecute(String lastFile) {

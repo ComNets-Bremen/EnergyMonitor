@@ -1,7 +1,6 @@
 package de.uni_bremen.comnets.jd.energymonitor;
 
 import android.content.Context;
-import android.database.Cursor;
 import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,18 +16,18 @@ import java.util.List;
  */
 public class ExpandableListAdapter extends BaseExpandableListAdapter {
     private Context context;
-    private EnergyDbAdaper dbAdaper;
+    private EnergyDbAdapter dbAdapter;
 
     private HashMap<String, List<String>> _listDataChild;
 
-        public ExpandableListAdapter(Context context, EnergyDbAdaper dbAdaper) {
+        public ExpandableListAdapter(Context context, EnergyDbAdapter dbAdapter) {
             this.context = context;
-            this.dbAdaper = dbAdaper;
+            this.dbAdapter = dbAdapter;
     }
 
     @Override
     public Object getChild(int groupPosition, int childPosititon) {
-        return dbAdaper.getChildDataById(groupPosition);
+        return dbAdapter.getChildDataById(groupPosition);
     }
 
     @Override
@@ -62,12 +61,12 @@ public class ExpandableListAdapter extends BaseExpandableListAdapter {
 
     @Override
     public Object getGroup(int groupPosition) {
-        return dbAdaper.getGroupHeadingById(groupPosition);
+        return dbAdapter.getGroupHeadingById(groupPosition);
     }
 
     @Override
     public int getGroupCount() {
-        return dbAdaper.getSize();
+        return dbAdapter.getSize();
     }
 
     @Override
