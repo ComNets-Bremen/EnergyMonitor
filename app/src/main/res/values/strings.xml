@@ -2,7 +2,6 @@
     <string name="app_name">EnergyMonitor</string>
     <string name="button_export_db">Export DB</string>
     <string name="button_flush_db">Flush DB</string>
-    <string name="title_activity_feedback" translatable="false">FeedbackActivity</string>
     <string name="no_data">No data requested</string>
     <string name="output_file_format" translatable="false">yyyy-MM-dd_HH-mm-ss.SSS</string>
     <string name="send_csv_to">Send CSV file to</string>

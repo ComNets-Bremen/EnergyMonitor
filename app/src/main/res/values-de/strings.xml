@@ -20,7 +20,6 @@
     <string name="no_write_access">Kann Daten nicht exportieren: Kein Schreibzugriff. Vielleicht wurde der Zugriff nicht freigegeben?</string>
     <string name="ok">Ok</string>
     <string name="send_csv_to">CSV-Datei senden an</string>
-    <string name="title_activity_feedback"></string>
     <string name="write_access_message">Um Daten zu exportieren wird Schreibzugriff auf den externen Speicher benötigt</string>
     <string name="write_access_title">Schreibzugriff benötigt</string>
 </resources>
