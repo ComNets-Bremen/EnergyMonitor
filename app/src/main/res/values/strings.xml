@@ -2,9 +2,9 @@
     <string name="app_name">EnergyMonitor</string>
     <string name="button_export_db">Export DB</string>
     <string name="button_flush_db">Flush DB</string>
-    <string name="title_activity_feedback">FeedbackActivity</string>
+    <string name="title_activity_feedback" translatable="false">FeedbackActivity</string>
     <string name="no_data">No data requested</string>
-    <string name="output_file_format">yyyy-MM-dd_HH-mm-ss.SSS</string>
+    <string name="output_file_format" translatable="false">yyyy-MM-dd_HH-mm-ss.SSS</string>
     <string name="send_csv_to">Send CSV file to</string>
     <string name="button_start_measurements">Start Measurements</string>
     <string name="button_stop_measurements">Stop measurements</string>
@@ -12,8 +12,8 @@
     <string name="measurements_already_running">Measurements already running</string>
     <string name="measurements_stopped">Measurements stopped</string>
     <string name="measurements_already_stopped">No Measurements running</string>
-    <string name="not_initialized" />
-    <string name="no_write_access">"Cannot export file: No write access to data directory. Maybe no access granted?"</string>
+    <string name="not_initialized" translatable="false" />
+    <string name="no_write_access">Cannot export file: No write access to data directory. Maybe no access granted?</string>
     <string name="measurement_status_running">Measurements running</string>
     <string name="measurement_status_stopped">Measurements stopped</string>
     <string name="flush_db_message">Do you really want to flush the database?</string>

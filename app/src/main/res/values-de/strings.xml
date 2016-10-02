@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EnergyMonitor</string>
+    <string name="aborted">Abgebrochen</string>
+    <string name="button_export_db">Datenbank exportieren</string>
+    <string name="button_flush_db">Datenbank leeren</string>
+    <string name="button_start_measurements">Messungen starten</string>
+    <string name="button_stop_measurements">Messungen beenden</string>
+    <string name="cancel">Abbruch</string>
+    <string name="db_flushed">Datenbank geleert</string>
+    <string name="flush_db_message">Möchten Sie wirklich die gesamte Datenbank leeren?</string>
+    <string name="flush_db_title">Leere Datenbank</string>
+    <string name="measurement_status_running">Messungen laufen</string>
+    <string name="measurement_status_stopped">Messungen beendet</string>
+    <string name="measurements_already_running">Messungen laufen bereits</string>
+    <string name="measurements_already_stopped">Es laufen keine Messungen</string>
+    <string name="measurements_started">Messungen gestartet</string>
+    <string name="measurements_stopped">Messungen gestoppt</string>
+    <string name="no_data">Keine Daten angefragt</string>
+    <string name="no_write_access">Kann Daten nicht exportieren: Kein Schreibzugriff. Vielleicht wurde der Zugriff nicht freigegeben?</string>
+    <string name="ok">Ok</string>
+    <string name="send_csv_to">CSV-Datei senden an</string>
+    <string name="title_activity_feedback"></string>
+    <string name="write_access_message">Um Daten zu exportieren wird Schreibzugriff auf den externen Speicher benötigt</string>
+    <string name="write_access_title">Schreibzugriff benötigt</string>
+</resources>
