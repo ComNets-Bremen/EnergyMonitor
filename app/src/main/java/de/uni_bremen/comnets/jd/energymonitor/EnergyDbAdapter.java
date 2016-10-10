@@ -68,8 +68,8 @@ public final class EnergyDbAdapter {
             "DROP TABLE IF EXISTS " + TABLE_NAME;
 
     private final Context context;
-    private DatabaseHelper mDbHelper;   // Helper object to handle db
-    private SQLiteDatabase mDb = null;  // The (writable) database
+    private static DatabaseHelper mDbHelper;   // Helper object to handle db
+    private static SQLiteDatabase mDb = null;  // The (writable) database
 
     /**
      * Database helper with some predefined transition methods
