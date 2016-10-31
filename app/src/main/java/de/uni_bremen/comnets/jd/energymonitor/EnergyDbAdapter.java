@@ -3,6 +3,7 @@ package de.uni_bremen.comnets.jd.energymonitor;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.DataSetObserver;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
@@ -283,7 +284,7 @@ public final class EnergyDbAdapter {
             fosw.write(row);
 
             cur.moveToFirst();
-            while (cur.isAfterLast() == false) {
+            while (!cur.isAfterLast()) {
                 row = "";
                 for (int j = 0; j < cur.getColumnCount(); j++) {
                     row += cur.getString(j) + ",";
@@ -305,4 +306,6 @@ public final class EnergyDbAdapter {
         }
         return 0;
     }
+
+
 }

@@ -8,11 +8,14 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.BatteryManager;
 import android.os.Environment;
+import android.preference.PreferenceManager;
+import android.support.design.widget.TabLayout;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.os.Bundle;
@@ -39,10 +42,6 @@ public class ConfigActivity extends Activity {
 
     private static final int PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE = 1;
 
-    private BroadcastReceiver batteryReceiver = null;
-    private boolean batteryReceiverRegistered = false;
-    private IntentFilter batteryReceiverFilter = null;
-
     private EnergyDbAdapter dbAdapter = null;
 
     // TODO: CHECK
@@ -50,7 +49,9 @@ public class ConfigActivity extends Activity {
     ExpandableListView expListView;
     List<String> listDataHeader;
     HashMap<String, List<String>> listDataChild;
-// TODO: End check
+    // TODO: End check
+
+    BatteryReceiver batteryReceiver = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,7 +69,6 @@ public class ConfigActivity extends Activity {
             dbAdapter = null;
             // Todo: Handle?
         }
-        Log.e(LOG_TAG, "dbAdapter id: " + dbAdapter.toString());
 
         // List View start
 
@@ -83,53 +83,16 @@ public class ConfigActivity extends Activity {
         // setting list adapter
         expListView.setAdapter(listAdapter);
 
-        // List View end
+        batteryReceiver = new BatteryReceiver(this, dbAdapter, listAdapter);
 
+        // Enable measurements according to saved status
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean running = sharedPref.getBoolean(ConfigClass.CONFIG_VALUE_RUNNING, true);
+        setMeasurementsEnable(running);
 
-        if (batteryReceiver == null) {
-            batteryReceiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-
-                    long currentTime = System.currentTimeMillis();
-
-                    int currentLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-                    int scaling = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-                    int level = -1;
-                    if (currentLevel >= 0 && scaling > 0) {
-                        level = (currentLevel * 100) / scaling;
-                    }
-                    int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-                    boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                            status == BatteryManager.BATTERY_STATUS_FULL;
-
-                    int chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
-                    boolean usbCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_USB;
-                    boolean acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
-
-
-                    ContentValues values = new ContentValues();
-                    values.put(EnergyDbAdapter.COLUMN_NAME_CHARGING, isCharging);
-                    values.put(EnergyDbAdapter.COLUMN_NAME_TIMESTAMP, currentTime);
-                    values.put(EnergyDbAdapter.COLUMN_NAME_CHG_AC, acCharge);
-                    values.put(EnergyDbAdapter.COLUMN_NAME_CHG_USB, usbCharge);
-                    values.put(EnergyDbAdapter.COLUMN_NAME_PERCENTAGE, level);
-
-                    if (dbAdapter.appendData(values) == -1){
-                        Log.e(LOG_TAG, "Cannot insert data into database!");
-                    }
-                    listAdapter.notifyDataSetChanged();
-
-                }
-            };
-
-            if (batteryReceiverFilter == null) {
-                batteryReceiverFilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-            }
-        }
-
-        // Enable measurements on startup
-        setMeasurementsEnable(true);
+        // Start Background service
+        Intent serviceIntent = new Intent(this, BackgroundService.class);
+        this.startService(serviceIntent);
     }
 
     /**
@@ -268,17 +231,23 @@ public class ConfigActivity extends Activity {
      */
     private void setMeasurementsEnable(boolean measurementsEnable) {
         if (!measurementsEnable) {
-            if (batteryReceiverRegistered) {
-                unregisterReceiver(batteryReceiver);
-                batteryReceiverRegistered = false;
+            if (batteryReceiver.getRegister()) {
+                batteryReceiver.register(false);
+                // Make settings persistent
+                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(this).edit();
+                editor.putBoolean(ConfigClass.CONFIG_VALUE_RUNNING, false);
+                editor.apply();
                 notifyUser(R.string.measurements_stopped);
             } else {
                 notifyUser(R.string.measurements_already_stopped);
             }
         } else {
-            if (!batteryReceiverRegistered) {
-                registerReceiver(batteryReceiver, batteryReceiverFilter);
-                batteryReceiverRegistered = true;
+            if (!batteryReceiver.getRegister()) {
+                batteryReceiver.register(true);
+                // Make settings persistent
+                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(this).edit();
+                editor.putBoolean(ConfigClass.CONFIG_VALUE_RUNNING, true);
+                editor.apply();
                 notifyUser(R.string.measurements_started);
             } else {
                 notifyUser(R.string.measurements_already_running);
@@ -286,7 +255,7 @@ public class ConfigActivity extends Activity {
         }
 
         CheckBox checkBox = (CheckBox) findViewById(R.id.measurementStatusCheckBox);
-        if (batteryReceiverRegistered) {
+        if (batteryReceiver.getRegister()) {
             checkBox.setText(R.string.measurement_status_running);
             checkBox.setChecked(true);
         } else {
