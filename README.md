@@ -1,6 +1,9 @@
 EnergyMonitor
 =============
 
+The development of EnergyMonitor was discontinued as [ResourceMonitor](https://github.com/ComNets-Bremen/ResourceMonitor) is an
+extended and improved version of EnergyMonitor.
+
 Introduction
 ------------
 
